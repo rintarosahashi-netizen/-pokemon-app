@@ -2,18 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>構築ツール</title>
+<title>ポケモン構築ツール</title>
 
-<!-- PWA -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff0000">
-
-<!-- 🔥 アイコン修正 -->
 <link rel="apple-touch-icon" href="icon.png.PNG">
 
-<!-- iPhoneアプリ化 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <style>
 body {
@@ -27,17 +24,20 @@ header {
   color:white;
   padding:18px;
   text-align:center;
-  font-size:20px;
   font-weight:bold;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2);
 }
 
 .tabs { display:flex; background:white; }
+
 .tab {
   flex:1;
   padding:12px;
   text-align:center;
   font-weight:bold;
+  transition:0.2s;
 }
+
 .active {
   border-bottom:3px solid #ff0000;
   color:#ff0000;
@@ -45,10 +45,17 @@ header {
 
 .card {
   background:white;
-  margin:15px;
+  margin:15px auto;
   padding:15px;
   border-radius:16px;
+  max-width:500px;
   box-shadow:0 4px 12px rgba(0,0,0,0.1);
+  animation:fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(10px);}
+  to { opacity:1; transform:translateY(0);}
 }
 
 input {
@@ -57,6 +64,7 @@ input {
   margin-top:10px;
   border-radius:10px;
   border:1px solid #ccc;
+  font-size:16px;
 }
 
 button {
@@ -68,11 +76,19 @@ button {
   background:#ff0000;
   color:white;
   font-weight:bold;
+  font-size:16px;
+  transition:0.1s;
+  box-shadow:0 4px 8px rgba(0,0,0,0.15);
+}
+
+button:active {
+  transform:scale(0.97);
 }
 
 .poke {
   padding:10px;
   border-bottom:1px solid #eee;
+  border-radius:10px;
 }
 
 .name {
@@ -86,8 +102,10 @@ button {
   color:white;
   font-size:12px;
   margin-right:5px;
+  box-shadow:0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* タイプ色 */
 .ゴースト { background:#705898;}
 .フェアリー { background:#ee99ac;}
 .ドラゴン { background:#7038f8;}
@@ -127,15 +145,23 @@ button {
 
 <script>
 
+// ===== 重複防止用 =====
+function baseName(p){
+  return p.replace("メガ","");
+}
+
+// ===== タブ =====
 function switchTab(tab){
-  document.getElementById("build").classList.add("hidden");
-  document.getElementById("analysis").classList.add("hidden");
-  document.getElementById(tab).classList.remove("hidden");
+  document.querySelectorAll("#build,#analysis").forEach(el=>el.classList.add("hidden"));
+  const target = document.getElementById(tab);
+  target.classList.remove("hidden");
+  target.style.animation = "fadeIn 0.3s";
 
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   event.target.classList.add("active");
 }
 
+// ===== データ =====
 const types = {
   "ミミッキュ":["ゴースト","フェアリー"],
   "ドラパルト":["ドラゴン","ゴースト"],
@@ -152,21 +178,35 @@ const icons = {
 
 const megaList = ["メガメガニウム","メガオーダイル","メガドリュウズ","メガスコヴィラン"];
 
+// ===== 構築生成 =====
 function gen(){
+
   let input = document.getElementById("input").value;
   let out = document.getElementById("out");
 
   let team = [];
-  team.push(megaList[Math.floor(Math.random()*megaList.length)]);
-  team.push(megaList[Math.floor(Math.random()*megaList.length)]);
 
-  if(input) team.push(input);
+  // メガ2体（重複防止）
+  let m1 = megaList[Math.floor(Math.random()*megaList.length)];
+  let m2;
+  do {
+    m2 = megaList[Math.floor(Math.random()*megaList.length)];
+  } while (baseName(m1) === baseName(m2));
+
+  team.push(m1);
+  team.push(m2);
+
+  if(input && !team.some(x=>baseName(x)===baseName(input))){
+    team.push(input);
+  }
 
   let pool = Object.keys(types);
 
   while(team.length<6){
     let p = pool[Math.floor(Math.random()*pool.length)];
-    if(!team.includes(p)) team.push(p);
+    if(!team.some(x=>baseName(x)===baseName(p))){
+      team.push(p);
+    }
   }
 
   let html = `<div class="card">`;
@@ -190,6 +230,7 @@ function gen(){
   out.innerHTML = html;
 }
 
+// ===== 分析 =====
 function analyze(){
   let result = document.getElementById("analysisResult");
   result.innerHTML = `
