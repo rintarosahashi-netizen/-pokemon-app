@@ -4,8 +4,16 @@
 <meta charset="UTF-8">
 <title>構築ツール</title>
 
+<!-- PWA -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#3366ff">
+<meta name="theme-color" content="#ff0000">
+
+<!-- 🔥 アイコン修正 -->
+<link rel="apple-touch-icon" href="icon.png.PNG">
+
+<!-- iPhoneアプリ化 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <style>
 body {
@@ -14,7 +22,6 @@ body {
   background:#f2f4ff;
 }
 
-/* ヘッダー */
 header {
   background:linear-gradient(135deg,#3b4cca,#ff0000);
   color:white;
@@ -24,15 +31,18 @@ header {
   font-weight:bold;
 }
 
-/* タブ */
 .tabs { display:flex; background:white; }
 .tab {
-  flex:1; padding:12px; text-align:center;
-  font-weight:bold; cursor:pointer;
+  flex:1;
+  padding:12px;
+  text-align:center;
+  font-weight:bold;
 }
-.active { border-bottom:3px solid #ff0000; color:#ff0000; }
+.active {
+  border-bottom:3px solid #ff0000;
+  color:#ff0000;
+}
 
-/* カード */
 .card {
   background:white;
   margin:15px;
@@ -41,7 +51,6 @@ header {
   box-shadow:0 4px 12px rgba(0,0,0,0.1);
 }
 
-/* 入力 */
 input {
   width:100%;
   padding:12px;
@@ -50,7 +59,6 @@ input {
   border:1px solid #ccc;
 }
 
-/* ボタン */
 button {
   width:100%;
   padding:12px;
@@ -62,7 +70,6 @@ button {
   font-weight:bold;
 }
 
-/* ポケモン */
 .poke {
   padding:10px;
   border-bottom:1px solid #eee;
@@ -70,10 +77,8 @@ button {
 
 .name {
   font-weight:bold;
-  font-size:16px;
 }
 
-/* タイプバッジ */
 .type {
   display:inline-block;
   padding:4px 8px;
@@ -83,7 +88,6 @@ button {
   margin-right:5px;
 }
 
-/* タイプ色 */
 .ゴースト { background:#705898;}
 .フェアリー { background:#ee99ac;}
 .ドラゴン { background:#7038f8;}
@@ -91,14 +95,6 @@ button {
 .はがね { background:#b8b8d0;}
 .みず { background:#6890f0;}
 .どく { background:#a040a0;}
-.ひこう { background:#a890f0;}
-.いわ { background:#b8a038;}
-
-/* アイコン */
-.icon {
-  font-size:18px;
-  margin-right:5px;
-}
 
 .hidden { display:none; }
 </style>
@@ -113,7 +109,6 @@ button {
   <div class="tab" onclick="switchTab('analysis')">分析</div>
 </div>
 
-<!-- 構築 -->
 <div id="build">
   <div class="card">
     <input id="input" placeholder="使いたいポケモン">
@@ -122,7 +117,6 @@ button {
   <div id="out"></div>
 </div>
 
-<!-- 分析 -->
 <div id="analysis" class="hidden">
   <div class="card">
     <input id="enemy" placeholder="相手構築（カンマ区切り）">
@@ -133,7 +127,6 @@ button {
 
 <script>
 
-// ===== タブ切替 =====
 function switchTab(tab){
   document.getElementById("build").classList.add("hidden");
   document.getElementById("analysis").classList.add("hidden");
@@ -143,7 +136,6 @@ function switchTab(tab){
   event.target.classList.add("active");
 }
 
-// ===== タイプ =====
 const types = {
   "ミミッキュ":["ゴースト","フェアリー"],
   "ドラパルト":["ドラゴン","ゴースト"],
@@ -151,7 +143,6 @@ const types = {
   "ドヒドイデ":["みず","どく"]
 };
 
-// ===== アイコン =====
 const icons = {
   "ミミッキュ":"👻",
   "ドラパルト":"🐉",
@@ -159,18 +150,13 @@ const icons = {
   "ドヒドイデ":"🧪"
 };
 
-// ===== メガ =====
 const megaList = ["メガメガニウム","メガオーダイル","メガドリュウズ","メガスコヴィラン"];
 
-// ===== 生成 =====
 function gen(){
-
   let input = document.getElementById("input").value;
   let out = document.getElementById("out");
 
   let team = [];
-
-  // メガ2体
   team.push(megaList[Math.floor(Math.random()*megaList.length)]);
   team.push(megaList[Math.floor(Math.random()*megaList.length)]);
 
@@ -186,7 +172,6 @@ function gen(){
   let html = `<div class="card">`;
 
   team.forEach(p=>{
-
     let t = types[p] || [];
     let icon = icons[p] || "⭐";
 
@@ -202,15 +187,11 @@ function gen(){
   });
 
   html += `</div>`;
-
   out.innerHTML = html;
 }
 
-// ===== 分析 =====
 function analyze(){
-
   let result = document.getElementById("analysisResult");
-
   result.innerHTML = `
   <div class="card">
     <b>推奨戦術</b><br>
@@ -218,7 +199,6 @@ function analyze(){
   </div>`;
 }
 
-// ===== SW =====
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
 }
