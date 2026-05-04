@@ -6,8 +6,6 @@
 
 <title>ポケモン構築AI</title>
 
-<link rel="apple-touch-icon" href="icon.png.PNG">
-
 <style>
 
 body{
@@ -16,74 +14,36 @@ body{
   background:#eef1ff;
 }
 
-/* ===== ホーム ===== */
-#home{
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  background:linear-gradient(135deg,#3b4cca,#ff0000);
-  color:white;
-}
-
-.home-title{
-  font-size:22px;
-  font-weight:bold;
-  margin-bottom:20px;
-}
-
-.home-btn{
-  width:80%;
-  padding:15px;
-  margin:10px;
-  border:none;
-  border-radius:15px;
-  font-size:16px;
-  font-weight:bold;
-}
-
-/* ===== アプリ ===== */
 header{
   background:#3b4cca;
   color:white;
-  padding:14px;
+  padding:12px;
   text-align:center;
-  font-weight:bold;
 }
 
+/* カード */
 .card{
   background:white;
   margin:10px auto;
   padding:12px;
-  border-radius:15px;
+  border-radius:14px;
   max-width:500px;
   box-shadow:0 4px 10px rgba(0,0,0,0.1);
-  animation:fadeIn 0.25s ease;
 }
 
-@keyframes fadeIn{
-  from{opacity:0;transform:translateY(10px);}
-  to{opacity:1;transform:translateY(0);}
-}
-
-/* ===== ボタン ===== */
+/* ボタン */
 button{
   width:100%;
-  padding:14px;
+  padding:12px;
+  margin-top:10px;
   border:none;
-  border-radius:12px;
+  border-radius:10px;
   background:#ff0000;
   color:white;
   font-weight:bold;
-  font-size:16px;
 }
 
-button:active{
-  transform:scale(0.97);
-}
-
-/* ===== ポケモン ===== */
+/* ポケモン */
 .poke{
   padding:10px;
   border-bottom:1px solid #eee;
@@ -94,22 +54,15 @@ button:active{
   font-weight:bold;
 }
 
+/* タイプ */
 .type{
   display:inline-block;
-  padding:4px 8px;
+  padding:3px 6px;
   border-radius:6px;
   color:white;
   font-size:12px;
-  margin-right:5px;
+  margin-right:4px;
 }
-
-.ゴースト{background:#705898;}
-.フェアリー{background:#ee99ac;}
-.ドラゴン{background:#7038f8;}
-.あく{background:#705848;}
-.はがね{background:#b8b8d0;}
-.みず{background:#6890f0;}
-.どく{background:#a040a0;}
 
 .hidden{display:none;}
 
@@ -118,86 +71,118 @@ button:active{
 
 <body>
 
-<!-- ===== HOME ===== -->
-<div id="home">
-  <div class="home-title">ポケモン構築AI</div>
-  <button class="home-btn" onclick="start()">🔥 今日の構築</button>
-</div>
-
-<!-- ===== APP ===== -->
-<div id="app" class="hidden">
-
-<header>構築生成</header>
+<header>構築AI（履歴付き）</header>
 
 <div class="card">
-  <select id="megaCount">
-    <option value="1">メガ1体</option>
-    <option value="2">メガ2体</option>
-  </select>
-
-  <button onclick="gen()">構築を生成</button>
+  <button onclick="gen()">構築生成</button>
+  <button onclick="clearHistory()">履歴クリア</button>
 </div>
 
 <div id="out"></div>
-<div id="detail"></div>
-
-</div>
+<div id="history"></div>
 
 <script>
 
-/* ===== 表示切替 ===== */
-function start(){
-  document.getElementById("home").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-}
-
-/* ===== データ ===== */
-const pool = ["ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ","ガブリアス"];
-
-const types = {
-  "ミミッキュ":["ゴースト","フェアリー"],
-  "ドラパルト":["ドラゴン","ゴースト"],
-  "ドドゲザン":["あく","はがね"],
-  "ドヒドイデ":["みず","どく"],
-  "ガブリアス":["ドラゴン"]
-};
-
-const megaPool = ["メガガブリアス","メガサーナイト"];
-
-/* ===== 重複防止 ===== */
 function base(p){ return p.replace("メガ",""); }
 
-/* ===== 構築生成 ===== */
+/* =========================
+   全ポケモンデータ（拡張前提）
+========================= */
+
+const POKEDEX = {
+  "ミミッキュ":{type:["ゴースト","フェアリー"]},
+  "ドラパルト":{type:["ドラゴン","ゴースト"]},
+  "ドドゲザン":{type:["あく","はがね"]},
+  "ドヒドイデ":{type:["みず","どく"]},
+  "ガブリアス":{type:["ドラゴン","じめん"]},
+  "サーナイト":{type:["フェアリー"]},
+  "カイリュー":{type:["ドラゴン","ひこう"]},
+  "バンギラス":{type:["いわ","あく"]},
+  "ウーラオス":{type:["かくとう"]},
+  "ハバタクカミ":{type:["ゴースト","フェアリー"]}
+};
+
+/* メガ */
+const megaPool = ["メガガブリアス","メガサーナイト"];
+
+/* =========================
+   履歴
+========================= */
+
+function saveHistory(team){
+  let history = JSON.parse(localStorage.getItem("history") || "[]");
+  history.unshift(team);
+  history = history.slice(0,10);
+  localStorage.setItem("history", JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory(){
+  let history = JSON.parse(localStorage.getItem("history") || "[]");
+
+  let html = `<div class="card"><b>履歴</b>`;
+
+  history.forEach((team,i)=>{
+    html += `<div style="margin-top:8px;">#${i+1}<br>`;
+    team.forEach(p=>{
+      html += `${p} `;
+    });
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+
+  document.getElementById("history").innerHTML = html;
+}
+
+function clearHistory(){
+  localStorage.removeItem("history");
+  renderHistory();
+}
+
+/* =========================
+   構築生成
+========================= */
+
 function gen(){
 
   let team = [];
 
-  let megaCount = parseInt(document.getElementById("megaCount").value);
+  // メガ1体固定
+  team.push(megaPool[Math.floor(Math.random()*megaPool.length)]);
 
-  // メガ
-  for(let i=0;i<megaCount;i++){
-    team.push(megaPool[Math.floor(Math.random()*megaPool.length)]);
-  }
+  // 通常
+  let keys = Object.keys(POKEDEX);
 
-  // 残り
   while(team.length<6){
-    let p = pool[Math.floor(Math.random()*pool.length)];
+    let p = keys[Math.floor(Math.random()*keys.length)];
+
     if(!team.some(x=>base(x)===base(p))){
       team.push(p);
     }
   }
 
+  renderTeam(team);
+  saveHistory(team);
+}
+
+/* =========================
+   表示
+========================= */
+
+function renderTeam(team){
+
   let html = `<div class="card">`;
 
   team.forEach(p=>{
-    let t = types[base(p)] || [];
+    let data = POKEDEX[base(p)] || {type:["不明"]};
 
     html += `
-    <div class="poke" onclick="detail('${p}')">
+    <div class="poke">
       <div class="name">${p}</div>`;
 
-    t.forEach(tp=>{
-      html += `<span class="type ${tp}">${tp}</span>`;
+    data.type.forEach(t=>{
+      html += `<span class="type">${t}</span>`;
     });
 
     html += `</div>`;
@@ -208,14 +193,7 @@ function gen(){
   document.getElementById("out").innerHTML = html;
 }
 
-/* ===== 詳細 ===== */
-function detail(p){
-  document.getElementById("detail").innerHTML = `
-  <div class="card">
-    <b>${p}</b><br>
-    性格・努力値・技（ここ拡張可能）
-  </div>`;
-}
+renderHistory();
 
 </script>
 
