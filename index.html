@@ -2,9 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ポケモン構築ツール</title>
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ポケモン構築ツール</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff0000">
@@ -28,21 +28,6 @@ header {
   box-shadow:0 4px 10px rgba(0,0,0,0.2);
 }
 
-.tabs { display:flex; background:white; }
-
-.tab {
-  flex:1;
-  padding:12px;
-  text-align:center;
-  font-weight:bold;
-  transition:0.2s;
-}
-
-.active {
-  border-bottom:3px solid #ff0000;
-  color:#ff0000;
-}
-
 .card {
   background:white;
   margin:15px auto;
@@ -50,12 +35,12 @@ header {
   border-radius:16px;
   max-width:500px;
   box-shadow:0 4px 12px rgba(0,0,0,0.1);
-  animation:fadeIn 0.4s ease;
+  animation:fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
-  from { opacity:0; transform:translateY(10px);}
-  to { opacity:1; transform:translateY(0);}
+  from {opacity:0; transform:translateY(10px);}
+  to {opacity:1; transform:translateY(0);}
 }
 
 input {
@@ -77,8 +62,6 @@ button {
   color:white;
   font-weight:bold;
   font-size:16px;
-  transition:0.1s;
-  box-shadow:0 4px 8px rgba(0,0,0,0.15);
 }
 
 button:active {
@@ -102,19 +85,18 @@ button:active {
   color:white;
   font-size:12px;
   margin-right:5px;
-  box-shadow:0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* タイプ色 */
-.ゴースト { background:#705898;}
-.フェアリー { background:#ee99ac;}
-.ドラゴン { background:#7038f8;}
-.あく { background:#705848;}
-.はがね { background:#b8b8d0;}
-.みず { background:#6890f0;}
-.どく { background:#a040a0;}
+/* タイプ */
+.ゴースト {background:#705898;}
+.フェアリー {background:#ee99ac;}
+.ドラゴン {background:#7038f8;}
+.あく {background:#705848;}
+.はがね {background:#b8b8d0;}
+.みず {background:#6890f0;}
+.どく {background:#a040a0;}
 
-.hidden { display:none; }
+.hidden {display:none;}
 </style>
 </head>
 
@@ -122,43 +104,19 @@ button:active {
 
 <header>ポケモン構築ツール</header>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('build')">構築</div>
-  <div class="tab" onclick="switchTab('analysis')">分析</div>
+<div class="card">
+  <input id="input" placeholder="使いたいポケモン">
+  <button onclick="gen()">構築生成</button>
 </div>
 
-<div id="build">
-  <div class="card">
-    <input id="input" placeholder="使いたいポケモン">
-    <button onclick="gen()">構築生成</button>
-  </div>
-  <div id="out"></div>
-</div>
-
-<div id="analysis" class="hidden">
-  <div class="card">
-    <input id="enemy" placeholder="相手構築（カンマ区切り）">
-    <button onclick="analyze()">勝ち筋分析</button>
-    <div id="analysisResult"></div>
-  </div>
-</div>
+<div id="out"></div>
+<div id="detail"></div>
 
 <script>
 
-// ===== 重複防止用 =====
+// ===== 重複判定 =====
 function baseName(p){
   return p.replace("メガ","");
-}
-
-// ===== タブ =====
-function switchTab(tab){
-  document.querySelectorAll("#build,#analysis").forEach(el=>el.classList.add("hidden"));
-  const target = document.getElementById(tab);
-  target.classList.remove("hidden");
-  target.style.animation = "fadeIn 0.3s";
-
-  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  event.target.classList.add("active");
 }
 
 // ===== データ =====
@@ -176,7 +134,55 @@ const icons = {
   "ドヒドイデ":"🧪"
 };
 
+const nature = {
+  "ミミッキュ":"いじっぱり",
+  "ドラパルト":"おくびょう",
+  "ドドゲザン":"いじっぱり",
+  "ドヒドイデ":"ずぶとい"
+};
+
+const details = {
+  "ミミッキュ":{
+    ev:"攻撃32 素早32",
+    item:"きあいのタスキ",
+    moves:["じゃれつく","かげうち","つるぎのまい"]
+  },
+  "ドラパルト":{
+    ev:"特攻32 素早32",
+    item:"こだわりスカーフ",
+    moves:["シャドーボール","りゅうせいぐん"]
+  },
+  "ドドゲザン":{
+    ev:"攻撃32 HP32",
+    item:"くろいメガネ",
+    moves:["ドゲザン","ふいうち"]
+  },
+  "ドヒドイデ":{
+    ev:"HP32 防御32",
+    item:"たべのこし",
+    moves:["どくどく","じこさいせい"]
+  }
+};
+
 const megaList = ["メガメガニウム","メガオーダイル","メガドリュウズ","メガスコヴィラン"];
+
+// ===== 詳細表示 =====
+function showDetail(p){
+  let base = p.replace("メガ","");
+  let d = details[base];
+  if(!d) return;
+
+  let nat = nature[base] || "まじめ";
+
+  document.getElementById("detail").innerHTML = `
+  <div class="card">
+    <b>${base} 詳細</b><br>
+    性格: ${nat}<br>
+    努力値: ${d.ev}<br>
+    持ち物: ${d.item}<br>
+    技: ${d.moves.join(", ")}
+  </div>`;
+}
 
 // ===== 構築生成 =====
 function gen(){
@@ -186,12 +192,12 @@ function gen(){
 
   let team = [];
 
-  // メガ2体（重複防止）
+  // メガ2体（重複なし）
   let m1 = megaList[Math.floor(Math.random()*megaList.length)];
   let m2;
   do {
     m2 = megaList[Math.floor(Math.random()*megaList.length)];
-  } while (baseName(m1) === baseName(m2));
+  } while(baseName(m1) === baseName(m2));
 
   team.push(m1);
   team.push(m2);
@@ -215,7 +221,7 @@ function gen(){
     let t = types[p] || [];
     let icon = icons[p] || "⭐";
 
-    html += `<div class="poke">
+    html += `<div class="poke" onclick="showDetail('${p}')">
       <div class="name">${icon} ${p}</div>
       <div>`;
 
@@ -228,20 +234,6 @@ function gen(){
 
   html += `</div>`;
   out.innerHTML = html;
-}
-
-// ===== 分析 =====
-function analyze(){
-  let result = document.getElementById("analysisResult");
-  result.innerHTML = `
-  <div class="card">
-    <b>推奨戦術</b><br>
-    メガを通して全抜き
-  </div>`;
-}
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
 }
 
 </script>
