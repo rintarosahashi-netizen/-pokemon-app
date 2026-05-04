@@ -10,15 +10,14 @@
 
 <style>
 
-/* ===== 基本 ===== */
-body {
+body{
   margin:0;
   font-family:-apple-system;
   background:#eef1ff;
 }
 
 /* ===== ホーム ===== */
-#home {
+#home{
   height:100vh;
   display:flex;
   flex-direction:column;
@@ -28,68 +27,89 @@ body {
   color:white;
 }
 
-.home-btn {
+.home-title{
+  font-size:22px;
+  font-weight:bold;
+  margin-bottom:20px;
+}
+
+.home-btn{
   width:80%;
   padding:15px;
   margin:10px;
-  border-radius:15px;
   border:none;
+  border-radius:15px;
   font-size:16px;
   font-weight:bold;
 }
 
-/* ===== ヘッダー ===== */
-header {
+/* ===== アプリ ===== */
+header{
   background:#3b4cca;
   color:white;
-  padding:12px;
+  padding:14px;
   text-align:center;
-}
-
-/* ===== カード ===== */
-.card {
-  background:white;
-  margin:10px;
-  padding:12px;
-  border-radius:15px;
-}
-
-/* ===== ボタン ===== */
-button {
-  width:100%;
-  padding:10px;
-  background:#ff0000;
-  color:white;
-  border:none;
-  border-radius:10px;
-}
-
-/* ===== ポケモンカード ===== */
-.poke {
-  padding:10px;
-  border-bottom:1px solid #eee;
-}
-
-.name {
   font-weight:bold;
 }
 
-/* タイプ */
-.type {
-  font-size:12px;
-  padding:3px 6px;
+.card{
+  background:white;
+  margin:10px auto;
+  padding:12px;
+  border-radius:15px;
+  max-width:500px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.1);
+  animation:fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* ===== ボタン ===== */
+button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  background:#ff0000;
+  color:white;
+  font-weight:bold;
+  font-size:16px;
+}
+
+button:active{
+  transform:scale(0.97);
+}
+
+/* ===== ポケモン ===== */
+.poke{
+  padding:10px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+}
+
+.name{
+  font-weight:bold;
+}
+
+.type{
+  display:inline-block;
+  padding:4px 8px;
   border-radius:6px;
   color:white;
+  font-size:12px;
   margin-right:5px;
 }
 
-.みず{background:#6890f0;}
-.ほのお{background:#f08030;}
-.くさ{background:#78c850;}
 .ゴースト{background:#705898;}
-.あく{background:#705848;}
 .フェアリー{background:#ee99ac;}
 .ドラゴン{background:#7038f8;}
+.あく{background:#705848;}
+.はがね{background:#b8b8d0;}
+.みず{background:#6890f0;}
+.どく{background:#a040a0;}
 
 .hidden{display:none;}
 
@@ -100,9 +120,8 @@ button {
 
 <!-- ===== HOME ===== -->
 <div id="home">
-  <h2>ポケモン構築AI</h2>
-  <button class="home-btn" onclick="openApp()">構築を作る</button>
-  <button class="home-btn" onclick="showSettings()">設定</button>
+  <div class="home-title">ポケモン構築AI</div>
+  <button class="home-btn" onclick="start()">🔥 今日の構築</button>
 </div>
 
 <!-- ===== APP ===== -->
@@ -111,85 +130,42 @@ button {
 <header>構築生成</header>
 
 <div class="card">
-  <input id="input" placeholder="使いたいポケモン">
   <select id="megaCount">
     <option value="1">メガ1体</option>
     <option value="2">メガ2体</option>
   </select>
 
-  <button onclick="gen()">生成</button>
+  <button onclick="gen()">構築を生成</button>
 </div>
 
 <div id="out"></div>
+<div id="detail"></div>
 
-</div>
-
-<!-- ===== SETTINGS ===== -->
-<div id="settings" class="hidden">
-<header>設定</header>
-
-<div class="card">
-  レギュレーション
-  <input id="reg" placeholder="例：ランクマ / フリー">
-
-  強さ
-  <select id="level">
-    <option>初心者</option>
-    <option>中級者</option>
-    <option>上級者</option>
-  </select>
-
-  天候
-  <select id="weather">
-    <option>なし</option>
-    <option>雨</option>
-    <option>晴れ</option>
-    <option>砂</option>
-  </select>
-
-</div>
-
-<button onclick="backHome()">戻る</button>
 </div>
 
 <script>
 
-/* ===== データ ===== */
-const pool = [
-  "ミミッキュ",
-  "ドラパルト",
-  "ドドゲザン",
-  "ドヒドイデ",
-  "ガブリアス",
-  "サーナイト"
-];
-
-const types = {
-  "ミミッキュ":["ゴースト","フェアリー"],
-  "ドラパルト":["ドラゴン","ゴースト"],
-  "ドドゲザン":["あく"],
-  "ドヒドイデ":["みず","どく"],
-  "ガブリアス":["ドラゴン","じめん"],
-  "サーナイト":["フェアリー"]
-};
-
-const megaPool = ["メガガブリアス","メガサーナイト"];
-
-/* ===== 画面 ===== */
-function openApp(){
+/* ===== 表示切替 ===== */
+function start(){
   document.getElementById("home").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
 }
 
-function showSettings(){
-  document.getElementById("home").classList.add("hidden");
-  document.getElementById("settings").classList.remove("hidden");
-}
+/* ===== データ ===== */
+const pool = ["ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ","ガブリアス"];
 
-function backHome(){
-  document.getElementById("settings").classList.add("hidden");
-  document.getElementById("home").classList.remove("hidden");
-}
+const types = {
+  "ミミッキュ":["ゴースト","フェアリー"],
+  "ドラパルト":["ドラゴン","ゴースト"],
+  "ドドゲザン":["あく","はがね"],
+  "ドヒドイデ":["みず","どく"],
+  "ガブリアス":["ドラゴン"]
+};
+
+const megaPool = ["メガガブリアス","メガサーナイト"];
+
+/* ===== 重複防止 ===== */
+function base(p){ return p.replace("メガ",""); }
 
 /* ===== 構築生成 ===== */
 function gen(){
@@ -197,28 +173,27 @@ function gen(){
   let team = [];
 
   let megaCount = parseInt(document.getElementById("megaCount").value);
-  let input = document.getElementById("input").value;
 
-  /* メガ */
+  // メガ
   for(let i=0;i<megaCount;i++){
     team.push(megaPool[Math.floor(Math.random()*megaPool.length)]);
   }
 
-  if(input) team.push(input);
-
-  /* 偏り防止ランダム */
+  // 残り
   while(team.length<6){
     let p = pool[Math.floor(Math.random()*pool.length)];
-    if(!team.includes(p)) team.push(p);
+    if(!team.some(x=>base(x)===base(p))){
+      team.push(p);
+    }
   }
 
-  /* 表示 */
   let html = `<div class="card">`;
 
   team.forEach(p=>{
-    let t = types[p] || ["不明"];
+    let t = types[base(p)] || [];
 
-    html += `<div class="poke">
+    html += `
+    <div class="poke" onclick="detail('${p}')">
       <div class="name">${p}</div>`;
 
     t.forEach(tp=>{
@@ -231,6 +206,15 @@ function gen(){
   html += `</div>`;
 
   document.getElementById("out").innerHTML = html;
+}
+
+/* ===== 詳細 ===== */
+function detail(p){
+  document.getElementById("detail").innerHTML = `
+  <div class="card">
+    <b>${p}</b><br>
+    性格・努力値・技（ここ拡張可能）
+  </div>`;
 }
 
 </script>
