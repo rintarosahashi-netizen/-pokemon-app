@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>構築AI（レギュ対応）</title>
+<title>構築AI 完成版</title>
 
 <style>
 body{margin:0;font-family:-apple-system;background:#eef1ff;}
@@ -27,13 +27,9 @@ button{
   color:white;
 }
 
-select{
-  width:100%;
-  padding:10px;
-  margin-top:8px;
-}
+select{width:100%;padding:10px;margin-top:8px;}
 
-.poke{padding:10px;border-bottom:1px solid #eee;}
+.poke{padding:10px;border-bottom:1px solid #eee;cursor:pointer;}
 
 .type{
   font-size:12px;
@@ -42,121 +38,223 @@ select{
   color:white;
   margin-right:4px;
 }
+
+.ゴースト{background:#705898;}
+.フェアリー{background:#ee99ac;}
+.ドラゴン{background:#7038f8;}
+.あく{background:#705848;}
+.はがね{background:#b8b8d0;}
+.みず{background:#6890f0;}
+.どく{background:#a040a0;}
 </style>
 </head>
 
 <body>
 
-<header>構築AI（レギュ対応）</header>
+<header>構築AI</header>
 
 <div class="card">
-  レギュレーション
-  <select id="reg"></select>
+レギュレーション
+<select id="reg"></select>
 
-  メガ数
-  <select id="megaCount">
-    <option value="0">なし</option>
-    <option value="1">1体</option>
-    <option value="2">2体</option>
-  </select>
+メガ数
+<select id="megaCount">
+<option value="0">0</option>
+<option value="1">1</option>
+<option value="2">2</option>
+</select>
 
-  <button onclick="gen()">構築生成</button>
+<button onclick="gen()">構築生成</button>
+<button onclick="clearHistory()">履歴クリア</button>
 </div>
 
 <div id="out"></div>
+<div id="detail"></div>
+<div id="history"></div>
 
 <script>
 
 /* ===== レギュ ===== */
 const REGULATIONS = {
-
   "メガ環境":{
     allowMega:true,
-    pokemon:["ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ","ガブリアス"],
-    mega:["メガガブリアス","メガサーナイト"]
-  },
-
-  "通常環境":{
-    allowMega:false,
-    pokemon:["ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ"],
-    mega:[]
+    pokemon:[
+      "ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ",
+      "ガブリアス","サーナイト","カイリュー","バンギラス",
+      "ロトム","ナットレイ","ギャラドス","サザンドラ"
+    ],
+    mega:[
+      "メガガブリアス","メガサーナイト","メガボーマンダ",
+      "メガハッサム","メガギャラドス","メガバンギラス"
+    ]
   }
-
 };
 
 /* ===== 図鑑 ===== */
 const POKEDEX = {
-  "ミミッキュ":{type:["ゴースト","フェアリー"]},
-  "ドラパルト":{type:["ドラゴン","ゴースト"]},
-  "ドドゲザン":{type:["あく","はがね"]},
-  "ドヒドイデ":{type:["みず","どく"]},
-  "ガブリアス":{type:["ドラゴン","じめん"]},
-  "サーナイト":{type:["フェアリー"]}
+"ミミッキュ":{type:["ゴースト","フェアリー"]},
+"ドラパルト":{type:["ドラゴン","ゴースト"]},
+"ドドゲザン":{type:["あく","はがね"]},
+"ドヒドイデ":{type:["みず","どく"]},
+"ガブリアス":{type:["ドラゴン","じめん"]},
+"サーナイト":{type:["フェアリー"]},
+"カイリュー":{type:["ドラゴン","ひこう"]},
+"バンギラス":{type:["いわ","あく"]},
+"ロトム":{type:["でんき","ゴースト"]},
+"ナットレイ":{type:["くさ","はがね"]},
+"ギャラドス":{type:["みず","ひこう"]},
+"サザンドラ":{type:["あく","ドラゴン"]}
 };
 
-/* ===== 初期化 ===== */
-const regSelect = document.getElementById("reg");
+/* ===== 弱点 ===== */
+const WEAKNESS = {
+"ドラゴン":["こおり","フェアリー"],
+"あく":["かくとう","フェアリー"],
+"はがね":["ほのお","かくとう"],
+"ゴースト":["あく"],
+"みず":["でんき","くさ"]
+};
 
-Object.keys(REGULATIONS).forEach(r=>{
-  regSelect.innerHTML += `<option>${r}</option>`;
-});
-
-/* ===== 補助 ===== */
 function base(p){ return p.replace("メガ",""); }
+
+/* ===== スコア ===== */
+function calcScore(team, c){
+  let score=0;
+  let ct=POKEDEX[base(c)]?.type||[];
+
+  team.forEach(p=>{
+    let tt=POKEDEX[base(p)]?.type||[];
+
+    ct.forEach(x=>{
+      if(tt.includes(x)) score-=2;
+    });
+
+    ct.forEach(x=>{
+      let weak=WEAKNESS[x]||[];
+      tt.forEach(y=>{
+        if(weak.includes(y)) score--;
+      });
+    });
+
+    score++;
+  });
+
+  return score;
+}
+
+/* ===== 最適選択 ===== */
+function pickBest(team,pool){
+  let best=null,bestScore=-999;
+
+  pool.forEach(p=>{
+    if(team.some(x=>base(x)===base(p))) return;
+
+    let s=calcScore(team,p);
+    if(s>bestScore){
+      bestScore=s;
+      best=p;
+    }
+  });
+
+  return best;
+}
+
+/* ===== メガ選択 ===== */
+function pickMega(reg,count){
+  let result=[];
+  while(result.length<count){
+    let m=reg.mega[Math.floor(Math.random()*reg.mega.length)];
+    if(!result.some(x=>base(x)===base(m))){
+      result.push(m);
+    }
+  }
+  return result;
+}
 
 /* ===== 生成 ===== */
 function gen(){
 
-  let regName = regSelect.value;
-  let reg = REGULATIONS[regName];
+  let reg=REGULATIONS[document.getElementById("reg").value];
+  let megaCount=parseInt(document.getElementById("megaCount").value);
 
-  let megaCount = parseInt(document.getElementById("megaCount").value);
+  let team=[];
 
-  let team = [];
-
-  /* メガ */
   if(reg.allowMega){
-    for(let i=0;i<megaCount;i++){
-      let m = reg.mega[Math.floor(Math.random()*reg.mega.length)];
-      team.push(m);
-    }
+    team=team.concat(pickMega(reg,megaCount));
   }
 
-  /* 通常 */
   while(team.length<6){
-    let p = reg.pokemon[Math.floor(Math.random()*reg.pokemon.length)];
-
-    if(!team.some(x=>base(x)===base(p))){
-      team.push(p);
-    }
+    let p=pickBest(team,reg.pokemon);
+    if(!p) break;
+    team.push(p);
   }
 
   render(team);
+  saveHistory(team);
 }
 
 /* ===== 表示 ===== */
 function render(team){
 
-  let html = `<div class="card">`;
+  let html=`<div class="card">`;
 
   team.forEach(p=>{
-    let data = POKEDEX[base(p)] || {type:["不明"]};
+    let t=POKEDEX[base(p)]?.type||[];
 
-    html += `<div class="poke">${p}<br>`;
+    html+=`<div class="poke" onclick="detail('${p}')">${p}<br>`;
 
-    data.type.forEach(t=>{
-      html += `<span class="type">${t}</span>`;
+    t.forEach(x=>{
+      html+=`<span class="type ${x}">${x}</span>`;
     });
 
-    html += `</div>`;
+    html+=`</div>`;
   });
 
-  html += `</div>`;
+  html+=`</div>`;
 
-  document.getElementById("out").innerHTML = html;
+  document.getElementById("out").innerHTML=html;
 }
 
-</script>
+/* ===== 詳細 ===== */
+function detail(p){
+  document.getElementById("detail").innerHTML=
+  `<div class="card"><b>${p}</b><br>詳細（拡張可）</div>`;
+}
 
+/* ===== 履歴 ===== */
+function saveHistory(team){
+  let h=JSON.parse(localStorage.getItem("h")||"[]");
+  h.unshift(team);
+  h=h.slice(0,10);
+  localStorage.setItem("h",JSON.stringify(h));
+  renderHistory();
+}
+
+function renderHistory(){
+  let h=JSON.parse(localStorage.getItem("h")||"[]");
+
+  let html=`<div class="card"><b>履歴</b>`;
+
+  h.forEach((t,i)=>{
+    html+=`<div>#${i+1}: ${t.join(", ")}</div>`;
+  });
+
+  html+=`</div>`;
+  document.getElementById("history").innerHTML=html;
+}
+
+function clearHistory(){
+  localStorage.removeItem("h");
+  renderHistory();
+}
+
+/* ===== 初期化 ===== */
+Object.keys(REGULATIONS).forEach(r=>{
+  document.getElementById("reg").innerHTML+=`<option>${r}</option>`;
+});
+
+renderHistory();
+
+</script>
 </body>
 </html>
