@@ -45,7 +45,7 @@ button{
   background:white;
   margin:20% auto;
   padding:20px;
-  width:80%;
+  width:85%;
   border-radius:12px;
 }
 </style>
@@ -78,7 +78,7 @@ button{
 
 <script>
 
-/* ===== データ（軽量） ===== */
+/* ===== データ ===== */
 const ALL_POKEMON = [
 "ガブリアス","カイリュー","ドラパルト","ミミッキュ",
 "ドドゲザン","サザンドラ","ウルガモス","ゲンガー",
@@ -104,26 +104,20 @@ const TIER = {
 
 /* ===== 役割 ===== */
 const ROLE = {
-
 "ガブリアス":["physical","sweeper"],
 "カイリュー":["physical","setup"],
 "ドドゲザン":["physical","sweeper"],
 "ミミッキュ":["physical","setup"],
-
 "ドラパルト":["special","sweeper"],
 "サザンドラ":["special","breaker"],
 "ウルガモス":["special","setup"],
-
 "ドヒドイデ":["wall","cycle"],
 "アーマーガア":["wall","cycle"],
 "カバルドン":["wall","weather"],
-
 "ロトム":["cycle","pivot"],
 "エルフーン":["support"],
-
 "ペリッパー":["weather"],
 "バンギラス":["weather"],
-
 "ゲンガー":["offense"],
 "ルカリオ":["offense"],
 "ギャラドス":["setup"]
@@ -131,84 +125,92 @@ const ROLE = {
 
 function base(p){return p.replace("メガ","");}
 
-/* ===== 育成データ ===== */
-const BUILD = {
+/* ===== 性格 ===== */
+const NATURE = {
+"ようき": {up:"S",down:"C"},
+"いじっぱり": {up:"A",down:"C"},
+"ひかえめ": {up:"C",down:"A"},
+"おくびょう": {up:"S",down:"A"}
+};
 
+function getNatureText(n){
+  let d = NATURE[n];
+  if(!d) return n;
+  return `${n}（${d.up}↑ ${d.down}↓）`;
+}
+
+/* ===== 努力値変換 ===== */
+function convertEV(ev){
+
+  let parts = ev.split(" ").map(e=>{
+    let stat = e[0];
+    let val = parseInt(e.slice(1));
+
+    if(val>=252) val=32;
+    else if(val>=4) val=2;
+    else val=0;
+
+    return {stat,val};
+  });
+
+  let total = parts.reduce((a,b)=>a+b.val,0);
+
+  let i=0;
+  while(total<66){
+    if(parts[i].val<32){
+      parts[i].val+=2;
+      total+=2;
+    }
+    i=(i+1)%parts.length;
+  }
+
+  return parts.map(p=>p.stat+p.val).join(" ");
+}
+
+/* ===== 育成 ===== */
+const BUILD = {
 "ガブリアス":{
   nature:"ようき",
   ability:"さめはだ",
   ev:"A252 S252 H4",
   moves:["じしん","げきりん","つるぎのまい","ステルスロック"]
 },
-
 "ドラパルト":{
   nature:"おくびょう",
   ability:"すりぬけ",
   ev:"C252 S252 H4",
   moves:["シャドーボール","りゅうせいぐん","だいもんじ","とんぼがえり"]
 },
-
 "ミミッキュ":{
   nature:"いじっぱり",
   ability:"ばけのかわ",
   ev:"A252 S252 H4",
   moves:["じゃれつく","かげうち","つるぎのまい","ドレインパンチ"]
-},
-
-"ドドゲザン":{
-  nature:"いじっぱり",
-  ability:"そうだいしょう",
-  ev:"A252 H252 S4",
-  moves:["ドゲザン","ふいうち","アイアンヘッド","つるぎのまい"]
-},
-
-"カイリュー":{
-  nature:"いじっぱり",
-  ability:"マルチスケイル",
-  ev:"A252 S252 H4",
-  moves:["しんそく","りゅうのまい","じしん","テラバースト"]
 }
-
 };
 
-/* ===== 軽量プール ===== */
+/* ===== プール ===== */
 function getPool(){
-
   let strong = ALL_POKEMON.filter(p => (TIER[p]||1)>=3);
-
-  let random = [...ALL_POKEMON]
-    .sort(()=>0.5-Math.random())
-    .slice(0,10);
-
+  let random = [...ALL_POKEMON].sort(()=>0.5-Math.random()).slice(0,10);
   return [...new Set([...strong,...random])];
 }
 
-/* ===== スコア ===== */
+/* ===== 選出 ===== */
 function calcScore(team,c){
-
   let score = TIER[base(c)] || 1;
-
-  team.forEach(()=> score += 1);
-
+  team.forEach(()=> score+=1);
   return score;
 }
 
-/* ===== 選出 ===== */
 function pickBest(team,pool){
-
   let sample = pool.sort(()=>0.5-Math.random()).slice(0,5);
-
-  let best=null,bestScore=-999;
+  let best=null,score=-999;
 
   sample.forEach(p=>{
     if(team.includes(p)) return;
-
     let s = calcScore(team,p);
-
-    if(s>bestScore){
-      bestScore=s;
-      best=p;
-    }
+    if(s>score){score=s;best=p;}
   });
 
   return best;
@@ -216,48 +218,32 @@ function pickBest(team,pool){
 
 /* ===== メガ ===== */
 function pickMega(n){
-
-  let pool = ALL_MEGA.filter(p => REAL_MEGA.has(p));
-  pool = pool.sort(()=>0.5-Math.random());
-
-  return pool.slice(0,n);
+  return ALL_MEGA.sort(()=>0.5-Math.random()).slice(0,n);
 }
 
 /* ===== 構築タイプ ===== */
 function detectBuildType(team){
-
-  let score={
-    "スタン":1,
-    "サイクル":0,
-    "対面":0,
-    "天候":0,
-    "受け":0
-  };
+  let s={スタン:1,サイクル:0,対面:0,天候:0,受け:0};
 
   team.forEach(p=>{
     let r = ROLE[base(p)]||[];
 
-    if(r.includes("wall")) score["受け"]+=2;
-    if(r.includes("cycle")) score["サイクル"]+=2;
-    if(r.includes("pivot")) score["サイクル"]+=1;
-
-    if(r.includes("offense")) score["対面"]+=2;
-    if(r.includes("sweeper")) score["対面"]+=1;
-
-    if(r.includes("weather")) score["天候"]+=3;
+    if(r.includes("wall")) s["受け"]+=2;
+    if(r.includes("cycle")) s["サイクル"]+=2;
+    if(r.includes("offense")) s["対面"]+=2;
+    if(r.includes("sweeper")) s["対面"]+=1;
+    if(r.includes("weather")) s["天候"]+=3;
   });
 
-  return Object.keys(score).reduce((a,b)=> score[a]>score[b]?a:b);
+  return Object.keys(s).reduce((a,b)=> s[a]>s[b]?a:b);
 }
 
 /* ===== 勝ち筋 ===== */
 function getWinCondition(team){
-
   let hasSetup=false,hasWall=false,hasWeather=false,hasOffense=false;
 
   team.forEach(p=>{
-    let r = ROLE[base(p)] || [];
-
+    let r = ROLE[base(p)]||[];
     if(r.includes("setup")) hasSetup=true;
     if(r.includes("wall")) hasWall=true;
     if(r.includes("weather")) hasWeather=true;
@@ -265,11 +251,36 @@ function getWinCondition(team){
   });
 
   if(hasWeather) return "天候展開 → エースで全抜き";
-  if(hasSetup && hasOffense) return "積みエースを通して全抜き";
-  if(hasWall && hasOffense) return "受け回しから削って詰め";
-  if(hasOffense) return "対面性能で押し切る";
+  if(hasSetup && hasOffense) return "積みエースで全抜き";
+  if(hasWall && hasOffense) return "受け回しで削る";
+  if(hasOffense) return "対面で押し切る";
 
-  return "バランス良く戦う";
+  return "バランス構築";
+}
+
+/* ===== エース ===== */
+function detectAce(team){
+
+  let best=null,score=-999,reason="";
+
+  team.forEach(p=>{
+    let r = ROLE[base(p)]||[];
+    let s = (TIER[base(p)]||1)*2;
+    let rs=[];
+
+    if(r.includes("sweeper")){s+=3;rs.push("全抜き性能");}
+    if(r.includes("setup")){s+=2;rs.push("積み性能");}
+    if(r.includes("offense")){s+=2;rs.push("対面性能");}
+    if(r.includes("weather")){s+=3;rs.push("天候エース");}
+
+    if(s>score){
+      score=s;
+      best=p;
+      reason=rs.join("・");
+    }
+  });
+
+  return {ace:best,reason};
 }
 
 /* ===== 生成 ===== */
@@ -297,10 +308,13 @@ function render(team){
 
   let type = detectBuildType(team);
   let win = getWinCondition(team);
+  let ace = detectAce(team);
 
   let html = `<div class="card">
   <b>構築タイプ：${type}</b><br>
-  <b>勝ち筋：${win}</b><br><br>`;
+  <b>勝ち筋：${win}</b><br>
+  <b>エース：${ace.ace}</b><br>
+  <small>${ace.reason}</small><br><br>`;
 
   team.forEach(p=>{
     html += `<div class="poke" onclick="showDetail('${p}')">${p}</div>`;
@@ -311,7 +325,7 @@ function render(team){
   document.getElementById("out").innerHTML = html;
 }
 
-/* ===== 詳細表示 ===== */
+/* ===== 詳細 ===== */
 function showDetail(name){
 
   let b = BUILD[base(name)];
@@ -320,11 +334,12 @@ function showDetail(name){
     document.getElementById("modalContent").innerHTML =
       `<b>${name}</b><br>データなし`;
   }else{
+
     document.getElementById("modalContent").innerHTML =
       `<b>${name}</b><br><br>
-      性格：${b.nature}<br>
+      性格：${getNatureText(b.nature)}<br>
       特性：${b.ability}<br>
-      努力値：${b.ev}<br>
+      努力値：${convertEV(b.ev)}<br>
       技：${b.moves.join(" / ")}`;
   }
 
