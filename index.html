@@ -27,6 +27,7 @@ border-radius:10px;border:1px solid #ddd;font-size:12px;
 display:none;position:fixed;top:0;left:0;
 width:100%;height:100%;background:rgba(0,0,0,0.6);
 }
+
 .modal-inner{
 background:white;margin:20% auto;padding:20px;
 width:85%;border-radius:12px;
@@ -57,12 +58,17 @@ width:85%;border-radius:12px;
 
 <script>
 
-/* ===== データ ===== */
+/* =========================
+   データ
+========================= */
+
 const ALL_POKEMON = [
 "ガブリアス","カイリュー","ドラパルト","ミミッキュ",
 "ドドゲザン","サザンドラ","ウルガモス","ゲンガー",
 "ドヒドイデ","アーマーガア","カバルドン",
-"ロトム","エルフーン","バンギラス","ギャラドス","ルカリオ"
+"ロトム(ウォッシュ)","ロトム(ヒート)","ロトム(フロスト)",
+"ロトム(スピン)","ロトム(カット)",
+"エルフーン","バンギラス","ギャラドス","ルカリオ"
 ];
 
 const TYPE = {
@@ -77,14 +83,31 @@ const TYPE = {
 "ドヒドイデ":["みず","どく"],
 "アーマーガア":["ひこう","はがね"],
 "カバルドン":["じめん"],
-"ロトム":["でんき","ゴースト"],
+"ロトム(ウォッシュ)":["でんき","みず"],
+"ロトム(ヒート)":["でんき","ほのお"],
+"ロトム(フロスト)":["でんき","こおり"],
+"ロトム(スピン)":["でんき","ひこう"],
+"ロトム(カット)":["でんき","くさ"],
 "エルフーン":["くさ","フェアリー"],
 "バンギラス":["いわ","あく"],
 "ギャラドス":["みず","ひこう"],
 "ルカリオ":["かくとう","はがね"]
 };
 
-/* ===== UI初期化 ===== */
+const FAMILY = {
+"ロトム(ウォッシュ)":"ロトム",
+"ロトム(ヒート)":"ロトム",
+"ロトム(フロスト)":"ロトム",
+"ロトム(スピン)":"ロトム",
+"ロトム(カット)":"ロトム"
+};
+
+const ITEMS = ["タスキ","珠","残飯","スカーフ","ラム"];
+
+/* =========================
+   初期化
+========================= */
+
 function initSelect(){
 let s=document.getElementById("favPokemon");
 s.innerHTML="<option value=''>なし</option>";
@@ -96,46 +119,31 @@ s.appendChild(o);
 }
 initSelect();
 
-/* ===== 持ち物 ===== */
-const ITEMS=["タスキ","珠","残飯","スカーフ","ラム"];
+/* =========================
+   ユーティリティ
+========================= */
 
-/* ===== 育成自動生成 ===== */
-function autoBuild(p){
-
-let types=TYPE[p]||[];
-
-let physical=Math.random()>0.5;
-
-let nature=physical?"いじっぱり":"おくびょう";
-let ev=physical?"A252 S252":"C252 S252";
-
-let moves=[];
-
-if(types.includes("じめん")) moves.push("じしん");
-if(types.includes("ドラゴン")) moves.push("りゅうせいぐん");
-if(types.includes("ゴースト")) moves.push("シャドーボール");
-if(types.includes("あく")) moves.push("あくのはどう");
-if(types.includes("ほのお")) moves.push("かえんほうしゃ");
-if(types.includes("みず")) moves.push("なみのり");
-if(types.includes("でんき")) moves.push("10まんボルト");
-
-while(moves.length<4){
-moves.push(["まもる","みがわり","つるぎのまい"][Math.floor(Math.random()*3)]);
+function base(p){
+return FAMILY[p] || p;
 }
 
-return {
-nature,
-ability:"特性",
-ev,
-moves
-};
+function isDuplicate(team,p){
+let fam = FAMILY[p] || p;
+return team.some(x => (FAMILY[x]||x) === fam);
 }
 
-/* ===== 弱点 ===== */
-const TYPE_CHART={
+function getItem(){
+return ITEMS[Math.floor(Math.random()*ITEMS.length)];
+}
+
+/* =========================
+   弱点判定（簡易）
+========================= */
+
+const TYPE_CHART = {
 "でんき":{"みず":2,"ひこう":2,"じめん":0},
-"こおり":{"ドラゴン":2,"ひこう":2,"じめん":2},
-"じめん":{"でんき":2,"ほのお":2},
+"じめん":{"でんき":2,"ほのお":2,"はがね":2},
+"こおり":{"ドラゴン":2,"ひこう":2}
 };
 
 function getMultiplier(atk,def){
@@ -148,26 +156,55 @@ else if(v)m*=v;
 return m;
 }
 
-function getWeakText(team){
-let score={};
+function detectWeakness(team){
+let res={};
 
 Object.keys(TYPE_CHART).forEach(t=>{
 let s=0;
 team.forEach(p=>{
 let m=getMultiplier(t,TYPE[p]||[]);
-if(m>=2)s++;
-if(m===0)s--;
+if(m===0)s-=2;
+else if(m>=2)s+=1;
 });
-score[t]=s;
+res[t]=s;
 });
 
-return Object.entries(score)
-.sort((a,b)=>b[1]-a[1])
-.slice(0,2)
-.map(x=>x[0]).join(" / ");
+return Object.entries(res).sort((a,b)=>b[1]-a[1]).slice(0,2);
 }
 
-/* ===== 構築 ===== */
+function getWeakText(team){
+return detectWeakness(team).map(x=>x[0]).join(" / ");
+}
+
+/* =========================
+   スコアAI
+========================= */
+
+function scorePokemon(p,team){
+
+let score=0;
+let types=TYPE[p]||[];
+
+team.forEach(t=>{
+let tt=TYPE[t]||[];
+if(tt.some(x=>types.includes(x))) score-=3;
+});
+
+let weak = detectWeakness(team).map(x=>x[0]);
+
+weak.forEach(w=>{
+let m=getMultiplier(w,types);
+if(m===0)score+=4;
+else if(m<=0.5)score+=2;
+});
+
+return score;
+}
+
+/* =========================
+   生成AI（核心）
+========================= */
+
 function gen(){
 
 let team=[];
@@ -176,21 +213,43 @@ let fav=document.getElementById("favPokemon").value;
 if(fav) team.push(fav);
 
 while(team.length<6){
-let p=ALL_POKEMON[Math.floor(Math.random()*ALL_POKEMON.length)];
-if(!team.includes(p)) team.push(p);
+
+let candidates=ALL_POKEMON.filter(p=>{
+if(team.includes(p)) return false;
+if(isDuplicate(team,p)) return false;
+return true;
+});
+
+let scored=candidates.map(p=>({
+p,
+s:scorePokemon(p,team)
+}));
+
+scored.sort((a,b)=>b.s-a.s);
+
+team.push(scored[0].p);
 }
 
 team=team.map(p=>({
 name:p,
-item:ITEMS[Math.floor(Math.random()*ITEMS.length)],
-build:autoBuild(p)
+item:getItem()
 }));
 
 saveHistory(team);
 render(team);
 }
 
-/* ===== 表示 ===== */
+/* =========================
+   表示
+========================= */
+
+let HISTORY=[];
+
+function saveHistory(team){
+HISTORY.unshift({team});
+if(HISTORY.length>10)HISTORY.pop();
+}
+
 function render(team){
 
 let names=team.map(t=>t.name);
@@ -199,7 +258,8 @@ let html=`<div class="card">
 <b>負け筋：</b>${getWeakText(names)}<br><br>`;
 
 team.forEach(p=>{
-html+=`<div class="poke" onclick="showDetail('${p.name}')">
+html+=`
+<div class="poke" onclick="showDetail('${p.name}','${p.item}')">
 ${p.name}（${p.item}）
 </div>`;
 });
@@ -210,41 +270,36 @@ document.getElementById("out").innerHTML=html;
 renderHistory();
 }
 
-/* ===== 詳細 ===== */
-function showDetail(name){
+/* =========================
+   詳細モーダル
+========================= */
 
-let t=HISTORY[0].team.find(x=>x.name===name);
+function showDetail(name,item){
 
-let b=t.build;
-
-document.getElementById("modalContent").innerHTML=`
-<b>${name}</b><br>
-持ち物：${t.item}<br>
-性格：${b.nature}<br>
-努力値：${b.ev}<br>
-技：${b.moves.join(" / ")}
-`;
+document.getElementById("modalContent").innerHTML=
+`<b>${name}</b><br>持ち物：${item}`;
 
 document.getElementById("modal").style.display="block";
 }
 
-/* ===== 履歴 ===== */
-let HISTORY=[];
-
-function saveHistory(team){
-HISTORY.unshift({team,date:new Date().toLocaleTimeString()});
-if(HISTORY.length>10)HISTORY.pop();
+function closeModal(){
+document.getElementById("modal").style.display="none";
 }
+
+/* =========================
+   履歴
+========================= */
 
 function renderHistory(){
 
 let html="<b>履歴</b>";
 
 HISTORY.forEach((h,i)=>{
+
 let short=h.team.map(t=>t.name).slice(0,3).join("・");
 
 html+=`
-<div class="history-card" onclick="openHistoryModal(${i})">
+<div class="history-card" onclick="openHistory(${i})">
 #${i+1} ${short}
 </div>`;
 });
@@ -252,7 +307,7 @@ html+=`
 document.getElementById("history").innerHTML=html;
 }
 
-function openHistoryModal(i){
+function openHistory(i){
 
 let team=HISTORY[i].team;
 
@@ -266,10 +321,7 @@ document.getElementById("modalContent").innerHTML=html;
 document.getElementById("modal").style.display="block";
 }
 
-function closeModal(){
-document.getElementById("modal").style.display="none";
-}
-
 </script>
+
 </body>
 </html>
