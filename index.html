@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>構築AI 完成版</title>
+<title>構築AI 完全版</title>
 
 <style>
 body{margin:0;font-family:-apple-system;background:#eef1ff;}
@@ -27,7 +27,7 @@ button{
   color:white;
 }
 
-select{width:100%;padding:10px;margin-top:8px;}
+textarea{width:100%;height:100px;margin-top:8px;}
 
 .poke{padding:10px;border-bottom:1px solid #eee;cursor:pointer;}
 
@@ -51,12 +51,15 @@ select{width:100%;padding:10px;margin-top:8px;}
 
 <body>
 
-<header>構築AI</header>
+<header>構築AI 完全版</header>
 
 <div class="card">
-レギュレーション
-<select id="reg"></select>
+<b>① 内定ポケモン貼り付け</b>
+<textarea id="importBox"></textarea>
+<button onclick="importPokemon()">取り込み</button>
+</div>
 
+<div class="card">
 メガ数
 <select id="megaCount">
 <option value="0">0</option>
@@ -74,23 +77,10 @@ select{width:100%;padding:10px;margin-top:8px;}
 
 <script>
 
-/* ===== レギュ ===== */
-const REGULATIONS = {
-  "メガ環境":{
-    allowMega:true,
-    pokemon:[
-      "ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ",
-      "ガブリアス","サーナイト","カイリュー","バンギラス",
-      "ロトム","ナットレイ","ギャラドス","サザンドラ"
-    ],
-    mega:[
-      "メガガブリアス","メガサーナイト","メガボーマンダ",
-      "メガハッサム","メガギャラドス","メガバンギラス"
-    ]
-  }
-};
+/* ===== データ ===== */
+let ALL_POKEMON = [];
+let ALL_MEGA = [];
 
-/* ===== 図鑑 ===== */
 const POKEDEX = {
 "ミミッキュ":{type:["ゴースト","フェアリー"]},
 "ドラパルト":{type:["ドラゴン","ゴースト"]},
@@ -99,26 +89,51 @@ const POKEDEX = {
 "ガブリアス":{type:["ドラゴン","じめん"]},
 "サーナイト":{type:["フェアリー"]},
 "カイリュー":{type:["ドラゴン","ひこう"]},
-"バンギラス":{type:["いわ","あく"]},
-"ロトム":{type:["でんき","ゴースト"]},
-"ナットレイ":{type:["くさ","はがね"]},
-"ギャラドス":{type:["みず","ひこう"]},
-"サザンドラ":{type:["あく","ドラゴン"]}
+"バンギラス":{type:["いわ","あく"]}
+};
+
+/* ===== Tier ===== */
+const TIER = {
+"ガブリアス":5,
+"ミミッキュ":4,
+"ドラパルト":5
 };
 
 /* ===== 弱点 ===== */
-const WEAKNESS = {
+const WEAK = {
 "ドラゴン":["こおり","フェアリー"],
-"あく":["かくとう","フェアリー"],
-"はがね":["ほのお","かくとう"],
-"ゴースト":["あく"],
-"みず":["でんき","くさ"]
+"あく":["かくとう"],
+"はがね":["ほのお"]
 };
 
-function base(p){ return p.replace("メガ",""); }
+function base(p){return p.replace("メガ","");}
+
+/* ===== インポート ===== */
+function importPokemon(){
+
+  let text=document.getElementById("importBox").value;
+
+  let raw=text.split(/\s|\n|,/);
+
+  let normal=[],mega=[];
+
+  raw.forEach(p=>{
+    p=p.trim();
+    if(!p)return;
+
+    if(p.includes("メガ")) mega.push(p);
+    else normal.push(p);
+  });
+
+  ALL_POKEMON=[...new Set(normal)];
+  ALL_MEGA=[...new Set(mega)];
+
+  alert("通常:"+ALL_POKEMON.length+" メガ:"+ALL_MEGA.length);
+}
 
 /* ===== スコア ===== */
-function calcScore(team, c){
+function calcScore(team,c){
+
   let score=0;
   let ct=POKEDEX[base(c)]?.type||[];
 
@@ -130,26 +145,30 @@ function calcScore(team, c){
     });
 
     ct.forEach(x=>{
-      let weak=WEAKNESS[x]||[];
+      let w=WEAK[x]||[];
       tt.forEach(y=>{
-        if(weak.includes(y)) score--;
+        if(w.includes(y)) score--;
       });
     });
 
     score++;
   });
 
+  score += TIER[base(c)] || 1;
+
   return score;
 }
 
 /* ===== 最適選択 ===== */
 function pickBest(team,pool){
+
   let best=null,bestScore=-999;
 
   pool.forEach(p=>{
-    if(team.some(x=>base(x)===base(p))) return;
+    if(team.some(x=>base(x)===base(p)))return;
 
     let s=calcScore(team,p);
+
     if(s>bestScore){
       bestScore=s;
       best=p;
@@ -159,33 +178,38 @@ function pickBest(team,pool){
   return best;
 }
 
-/* ===== メガ選択 ===== */
-function pickMega(reg,count){
-  let result=[];
-  while(result.length<count){
-    let m=reg.mega[Math.floor(Math.random()*reg.mega.length)];
-    if(!result.some(x=>base(x)===base(m))){
-      result.push(m);
-    }
+/* ===== メガ ===== */
+function pickMega(count){
+
+  let pool=[...ALL_MEGA];
+  let res=[];
+
+  while(res.length<count && pool.length){
+    let i=Math.floor(Math.random()*pool.length);
+    res.push(pool[i]);
+    pool.splice(i,1);
   }
-  return result;
+
+  return res;
 }
 
 /* ===== 生成 ===== */
 function gen(){
 
-  let reg=REGULATIONS[document.getElementById("reg").value];
-  let megaCount=parseInt(document.getElementById("megaCount").value);
+  if(ALL_POKEMON.length===0){
+    alert("先にポケモンを取り込んでください");
+    return;
+  }
 
   let team=[];
 
-  if(reg.allowMega){
-    team=team.concat(pickMega(reg,megaCount));
-  }
+  let megaCount=parseInt(document.getElementById("megaCount").value);
+
+  team=team.concat(pickMega(megaCount));
 
   while(team.length<6){
-    let p=pickBest(team,reg.pokemon);
-    if(!p) break;
+    let p=pickBest(team,ALL_POKEMON);
+    if(!p)break;
     team.push(p);
   }
 
@@ -218,7 +242,7 @@ function render(team){
 /* ===== 詳細 ===== */
 function detail(p){
   document.getElementById("detail").innerHTML=
-  `<div class="card"><b>${p}</b><br>詳細（拡張可）</div>`;
+  `<div class="card">${p}<br>詳細追加予定</div>`;
 }
 
 /* ===== 履歴 ===== */
@@ -240,6 +264,7 @@ function renderHistory(){
   });
 
   html+=`</div>`;
+
   document.getElementById("history").innerHTML=html;
 }
 
@@ -247,11 +272,6 @@ function clearHistory(){
   localStorage.removeItem("h");
   renderHistory();
 }
-
-/* ===== 初期化 ===== */
-Object.keys(REGULATIONS).forEach(r=>{
-  document.getElementById("reg").innerHTML+=`<option>${r}</option>`;
-});
 
 renderHistory();
 
