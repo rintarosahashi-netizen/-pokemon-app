@@ -3,35 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>ポケモン構築AI</title>
+<title>構築AI（レギュ対応）</title>
 
 <style>
+body{margin:0;font-family:-apple-system;background:#eef1ff;}
+header{background:#3b4cca;color:white;padding:12px;text-align:center;}
 
-body{
-  margin:0;
-  font-family:-apple-system;
-  background:#eef1ff;
-}
-
-header{
-  background:#3b4cca;
-  color:white;
-  padding:12px;
-  text-align:center;
-}
-
-/* カード */
 .card{
   background:white;
   margin:10px auto;
   padding:12px;
   border-radius:14px;
   max-width:500px;
-  box-shadow:0 4px 10px rgba(0,0,0,0.1);
 }
 
-/* ボタン */
 button{
   width:100%;
   padding:12px;
@@ -40,146 +25,124 @@ button{
   border-radius:10px;
   background:#ff0000;
   color:white;
-  font-weight:bold;
 }
 
-/* ポケモン */
-.poke{
+select{
+  width:100%;
   padding:10px;
-  border-bottom:1px solid #eee;
-  cursor:pointer;
+  margin-top:8px;
 }
 
-.name{
-  font-weight:bold;
-}
+.poke{padding:10px;border-bottom:1px solid #eee;}
 
-/* タイプ */
 .type{
-  display:inline-block;
+  font-size:12px;
   padding:3px 6px;
   border-radius:6px;
   color:white;
-  font-size:12px;
   margin-right:4px;
 }
-
-.hidden{display:none;}
-
 </style>
 </head>
 
 <body>
 
-<header>構築AI（履歴付き）</header>
+<header>構築AI（レギュ対応）</header>
 
 <div class="card">
+  レギュレーション
+  <select id="reg"></select>
+
+  メガ数
+  <select id="megaCount">
+    <option value="0">なし</option>
+    <option value="1">1体</option>
+    <option value="2">2体</option>
+  </select>
+
   <button onclick="gen()">構築生成</button>
-  <button onclick="clearHistory()">履歴クリア</button>
 </div>
 
 <div id="out"></div>
-<div id="history"></div>
 
 <script>
 
-function base(p){ return p.replace("メガ",""); }
+/* ===== レギュ ===== */
+const REGULATIONS = {
 
-/* =========================
-   全ポケモンデータ（拡張前提）
-========================= */
+  "メガ環境":{
+    allowMega:true,
+    pokemon:["ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ","ガブリアス"],
+    mega:["メガガブリアス","メガサーナイト"]
+  },
 
+  "通常環境":{
+    allowMega:false,
+    pokemon:["ミミッキュ","ドラパルト","ドドゲザン","ドヒドイデ"],
+    mega:[]
+  }
+
+};
+
+/* ===== 図鑑 ===== */
 const POKEDEX = {
   "ミミッキュ":{type:["ゴースト","フェアリー"]},
   "ドラパルト":{type:["ドラゴン","ゴースト"]},
   "ドドゲザン":{type:["あく","はがね"]},
   "ドヒドイデ":{type:["みず","どく"]},
   "ガブリアス":{type:["ドラゴン","じめん"]},
-  "サーナイト":{type:["フェアリー"]},
-  "カイリュー":{type:["ドラゴン","ひこう"]},
-  "バンギラス":{type:["いわ","あく"]},
-  "ウーラオス":{type:["かくとう"]},
-  "ハバタクカミ":{type:["ゴースト","フェアリー"]}
+  "サーナイト":{type:["フェアリー"]}
 };
 
-/* メガ */
-const megaPool = ["メガガブリアス","メガサーナイト"];
+/* ===== 初期化 ===== */
+const regSelect = document.getElementById("reg");
 
-/* =========================
-   履歴
-========================= */
+Object.keys(REGULATIONS).forEach(r=>{
+  regSelect.innerHTML += `<option>${r}</option>`;
+});
 
-function saveHistory(team){
-  let history = JSON.parse(localStorage.getItem("history") || "[]");
-  history.unshift(team);
-  history = history.slice(0,10);
-  localStorage.setItem("history", JSON.stringify(history));
-  renderHistory();
-}
+/* ===== 補助 ===== */
+function base(p){ return p.replace("メガ",""); }
 
-function renderHistory(){
-  let history = JSON.parse(localStorage.getItem("history") || "[]");
-
-  let html = `<div class="card"><b>履歴</b>`;
-
-  history.forEach((team,i)=>{
-    html += `<div style="margin-top:8px;">#${i+1}<br>`;
-    team.forEach(p=>{
-      html += `${p} `;
-    });
-    html += `</div>`;
-  });
-
-  html += `</div>`;
-
-  document.getElementById("history").innerHTML = html;
-}
-
-function clearHistory(){
-  localStorage.removeItem("history");
-  renderHistory();
-}
-
-/* =========================
-   構築生成
-========================= */
-
+/* ===== 生成 ===== */
 function gen(){
+
+  let regName = regSelect.value;
+  let reg = REGULATIONS[regName];
+
+  let megaCount = parseInt(document.getElementById("megaCount").value);
 
   let team = [];
 
-  // メガ1体固定
-  team.push(megaPool[Math.floor(Math.random()*megaPool.length)]);
+  /* メガ */
+  if(reg.allowMega){
+    for(let i=0;i<megaCount;i++){
+      let m = reg.mega[Math.floor(Math.random()*reg.mega.length)];
+      team.push(m);
+    }
+  }
 
-  // 通常
-  let keys = Object.keys(POKEDEX);
-
+  /* 通常 */
   while(team.length<6){
-    let p = keys[Math.floor(Math.random()*keys.length)];
+    let p = reg.pokemon[Math.floor(Math.random()*reg.pokemon.length)];
 
     if(!team.some(x=>base(x)===base(p))){
       team.push(p);
     }
   }
 
-  renderTeam(team);
-  saveHistory(team);
+  render(team);
 }
 
-/* =========================
-   表示
-========================= */
-
-function renderTeam(team){
+/* ===== 表示 ===== */
+function render(team){
 
   let html = `<div class="card">`;
 
   team.forEach(p=>{
     let data = POKEDEX[base(p)] || {type:["不明"]};
 
-    html += `
-    <div class="poke">
-      <div class="name">${p}</div>`;
+    html += `<div class="poke">${p}<br>`;
 
     data.type.forEach(t=>{
       html += `<span class="type">${t}</span>`;
@@ -192,8 +155,6 @@ function renderTeam(team){
 
   document.getElementById("out").innerHTML = html;
 }
-
-renderHistory();
 
 </script>
 
