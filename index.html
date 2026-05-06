@@ -21,9 +21,6 @@ padding:10px;border-bottom:1px solid #eee;
 cursor:pointer;
 }
 
-.bad{color:#c00;font-weight:bold;}
-.good{color:#090;font-weight:bold;}
-
 .modal{
 display:none;position:fixed;top:0;left:0;
 width:100%;height:100%;
@@ -31,7 +28,7 @@ background:rgba(0,0,0,0.6);
 }
 
 .modal-inner{
-background:white;margin:15% auto;padding:20px;
+background:white;margin:20% auto;padding:20px;
 width:85%;border-radius:12px;
 }
 </style>
@@ -39,16 +36,31 @@ width:85%;border-radius:12px;
 
 <body>
 
-<header>構築AI（完全版）</header>
+<header>構築AI 完全版</header>
 
 <div class="card">
-使いたいポケモン
+
+お気に入りポケモン
 <select id="fav"></select>
+
+<br><br>
+
+メガ数
+<select id="megaCount">
+<option value="0">0</option>
+<option value="1">1</option>
+<option value="2">2</option>
+</select>
 
 <button onclick="generate()">構築生成</button>
 </div>
 
 <div id="out"></div>
+
+<div class="card">
+<b>履歴</b>
+<div id="history"></div>
+</div>
 
 <div id="modal" class="modal">
 <div class="modal-inner">
@@ -60,13 +72,18 @@ width:85%;border-radius:12px;
 <script>
 
 /* =========================
-   🧠 データ
+   データ
 ========================= */
 
 const POKEMON = [
 "ガブリアス","カイリュー","ドラパルト","ミミッキュ",
 "ドドゲザン","サザンドラ","ウルガモス","ゲンガー",
 "アーマーガア","カバルドン","ルカリオ","ギャラドス"
+];
+
+const MEGA = [
+"メガガブリアス","メガサーナイト",
+"メガルカリオ","メガゲンガー","メガギャラドス"
 ];
 
 const TYPE = {
@@ -84,17 +101,15 @@ const TYPE = {
 "ギャラドス":["みず","ひこう"]
 };
 
-/* =========================
-   🧠 持ち物AI（簡略版）
-========================= */
-
 const ITEMS = [
-{n:"きあいのタスキ",t:["fast","sweeper"],p:100},
-{n:"こだわりスカーフ",t:["fast"],p:90},
-{n:"たべのこし",t:["wall"],p:85},
-{n:"オボンのみ",t:["wall","tank"],p:80},
-{n:"ラムのみ",t:["all"],p:70}
+{n:"きあいのタスキ",t:["sweeper"]},
+{n:"こだわりスカーフ",t:["fast"]},
+{n:"たべのこし",t:["wall"]},
+{n:"オボンのみ",t:["wall"]},
+{n:"ラムのみ",t:["all"]}
 ];
+
+let historyData = [];
 
 /* =========================
    初期化
@@ -112,7 +127,15 @@ s.appendChild(o);
 init();
 
 /* =========================
-   弱点判定（超簡易）
+   メガ
+========================= */
+
+function pickMega(n){
+return [...MEGA].sort(()=>0.5-Math.random()).slice(0,n);
+}
+
+/* =========================
+   弱点チェック（簡易）
 ========================= */
 
 function weakCheck(team){
@@ -121,8 +144,7 @@ let weak={"でんき":0,"じめん":0,"こおり":0};
 
 team.forEach(p=>{
 let t=TYPE[p]||[];
-if(t.includes("みず")) weak["でんき"]+=2;
-if(t.includes("ひこう")) weak["でんき"]+=2;
+if(t.includes("みず")||t.includes("ひこう")) weak["でんき"]+=2;
 if(t.includes("はがね")) weak["じめん"]+=1;
 if(t.includes("ドラゴン")) weak["こおり"]+=1;
 });
@@ -134,33 +156,31 @@ return Object.entries(weak)
 }
 
 /* =========================
-   持ち物AI
+   持ち物AI（重複なし）
 ========================= */
 
-function assignItem(p){
+function assignItem(p, used){
 
-let role="";
-
-let t=TYPE[p]||[];
-
+let role="all";
 if(p==="ミミッキュ"||p==="ガブリアス") role="sweeper";
-else if(p==="カバルドン"||p==="アーマーガア") role="wall";
-else role="all";
+if(p==="カバルドン"||p==="アーマーガア") role="wall";
 
-let best=ITEMS[0];
-let bestScore=-1;
-
-ITEMS.forEach(i=>{
+let candidates = ITEMS.map(i=>{
 let s=0;
+
 if(i.t.includes(role)) s+=3;
 if(i.t.includes("all")) s+=1;
-if(s>bestScore){
-bestScore=s;
-best=i;
-}
+if(used.includes(i.n)) s-=100;
+
+return {name:i.n,score:s};
 });
 
-return best.n;
+candidates.sort((a,b)=>b.score-a.score);
+
+let chosen = candidates[0].name;
+used.push(chosen);
+
+return chosen;
 }
 
 /* =========================
@@ -172,34 +192,41 @@ function score(p,team){
 let t=TYPE[p]||[];
 let s=0;
 
+/* タイプ被り軽減 */
 team.forEach(x=>{
 let tx=TYPE[x]||[];
 if(tx.some(a=>t.includes(a))) s-=2;
 });
 
-let w=weakCheck(team);
-if(w.some(x=>t.includes(x))) s+=3;
+/* 弱点補完 */
+let weak=weakCheck(team);
+if(weak.some(w=>t.includes(w))) s+=3;
 
 return s;
 }
 
 /* =========================
-   構築生成（コア）
+   構築生成
 ========================= */
 
 function generate(){
 
 let team=[];
 
-let fav=document.getElementById("fav").value;
-if(fav) team.push(fav);
+/* メガ */
+let megaCount=parseInt(document.getElementById("megaCount").value);
+team = team.concat(pickMega(megaCount));
 
+/* お気に入り */
+let fav=document.getElementById("fav").value;
+if(fav && !team.includes(fav)) team.push(fav);
+
+/* 残り */
 while(team.length<6){
 
 let pool=POKEMON.filter(p=>!team.includes(p));
 
-let best=null;
-let bestScore=-999;
+let best=null,bestScore=-999;
 
 pool.forEach(p=>{
 let s=score(p,team);
@@ -212,7 +239,12 @@ best=p;
 team.push(best);
 }
 
+/* 履歴保存 */
+historyData.unshift(team);
+
+/* 表示 */
 render(team);
+renderHistory();
 }
 
 /* =========================
@@ -222,12 +254,13 @@ render(team);
 function render(team){
 
 let weak=weakCheck(team);
+let used=[];
 
 let html=`<div class="card">
 <b>弱点：</b>${weak.join(" / ")}<br><br>`;
 
 team.forEach(p=>{
-let item=assignItem(p);
+let item=assignItem(p,used);
 
 html+=`
 <div class="poke" onclick="detail('${p}','${item}')">
@@ -241,14 +274,34 @@ document.getElementById("out").innerHTML=html;
 }
 
 /* =========================
-   詳細モーダル
+   履歴
+========================= */
+
+function renderHistory(){
+
+let html="";
+
+historyData.slice(0,10).forEach((team,i)=>{
+html+=`
+<div class="poke" onclick='loadHistory(${i})'>
+構築${i+1}
+</div>`;
+});
+
+document.getElementById("history").innerHTML=html;
+}
+
+function loadHistory(i){
+render(historyData[i]);
+}
+
+/* =========================
+   モーダル
 ========================= */
 
 function detail(p,item){
-
 document.getElementById("modalText").innerHTML=
 `<b>${p}</b><br>持ち物：${item}`;
-
 document.getElementById("modal").style.display="block";
 }
 
